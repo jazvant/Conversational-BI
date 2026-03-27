@@ -17,7 +17,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Columns that are integer codes but carry semantic meaning worth explaining
 _SEMANTIC_NOTES = {
-    "order_dow":          "0=Sunday … 6=Saturday",
+    "order_dow":          "0=Saturday, 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday",
     "reordered":          "1=reorder, 0=first time in cart",
     "add_to_cart_order":  "position the item was added (1=first)",
     "order_number":       "sequential order count per user (1=first-ever order)",
