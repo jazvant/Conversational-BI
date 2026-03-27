@@ -63,7 +63,7 @@ Column                         Type         Null   PK    Samples / Notes
   eval_set                     VARCHAR      YES          'prior', 'train'
   user_id                      INTEGER      YES          1, 2, 3
   order_number                 INTEGER      YES          1, 2, 3  [sequential order count per user (1=first-ever order)]
-  order_dow                    INTEGER      YES          0, 1, 2, 3, 4  [0=Sunday … 6=Saturday]
+  order_dow                    INTEGER      YES          0, 1, 2, 3, 4  [0=Saturday, 1=Sunday, 2=Monday, 3=Tuesday, 4=Wednesday, 5=Thursday, 6=Friday]
   order_hour_of_day            INTEGER      YES          0, 1, 2
   days_since_prior_order       DOUBLE       YES          0.0, 1.0, 2.0
 
