@@ -1,0 +1,118 @@
+INSTACART DUCKDB -- SCHEMA METADATA
+Generated : 2026-03-27 14:58:41
+Database  : C:\Users\jj402\Desktop\Conversational BI\models\instacart.db
+============================================================
+
+TABLES
+------
+  aisles
+  departments
+  order_details
+  order_products_prior
+  order_products_train
+  orders
+  products
+
+============================================================
+TABLE: aisles  (134 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+aisle_id                       INTEGER              NO     PRI
+aisle                          VARCHAR              NO     
+
+============================================================
+TABLE: departments  (21 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+department_id                  INTEGER              NO     PRI
+department                     VARCHAR              NO     
+
+============================================================
+TABLE: order_details  (33,819,106 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+order_id                       INTEGER              YES    
+product_id                     INTEGER              YES    
+add_to_cart_order              INTEGER              YES    
+reordered                      INTEGER              YES    
+eval_set                       VARCHAR              YES    
+user_id                        INTEGER              YES    
+order_number                   INTEGER              YES    
+order_dow                      INTEGER              YES    
+order_hour_of_day              INTEGER              YES    
+days_since_prior_order         DOUBLE               YES    
+
+============================================================
+TABLE: order_products_prior  (32,434,489 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+order_id                       INTEGER              NO     PRI
+product_id                     INTEGER              NO     PRI
+add_to_cart_order              INTEGER              NO     
+reordered                      INTEGER              NO     
+
+============================================================
+TABLE: order_products_train  (1,384,617 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+order_id                       INTEGER              NO     PRI
+product_id                     INTEGER              NO     PRI
+add_to_cart_order              INTEGER              NO     
+reordered                      INTEGER              NO     
+
+============================================================
+TABLE: orders  (3,421,083 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+order_id                       INTEGER              NO     PRI
+user_id                        INTEGER              NO     
+eval_set                       VARCHAR              NO     
+order_number                   INTEGER              NO     
+order_dow                      INTEGER              NO     
+order_hour_of_day              INTEGER              NO     
+days_since_prior_order         DOUBLE               YES    
+
+============================================================
+TABLE: products  (49,688 rows)
+============================================================
+Column                         Type                 Null   Key
+-----------------------------------------------------------------
+product_id                     INTEGER              NO     PRI
+product_name                   VARCHAR              NO     
+aisle_id                       INTEGER              NO     
+department_id                  INTEGER              NO     
+
+============================================================
+FOREIGN KEY RELATIONSHIPS
+============================================================
+products.aisle_id              -> aisles.aisle_id
+products.department_id         -> departments.department_id
+order_products_prior.order_id  -> orders.order_id
+order_products_prior.product_id -> products.product_id
+order_products_train.order_id  -> orders.order_id
+order_products_train.product_id -> products.product_id
+order_details.order_id         -> orders.order_id   (via UNION ALL + JOIN)
+order_details.product_id       -> products.product_id (via UNION ALL + JOIN)
+
+============================================================
+JOIN PATHS FOR LLM INTROSPECTION
+============================================================
+Full product enrichment (name, aisle, department):
+  order_details
+    JOIN products    ON order_details.product_id = products.product_id
+    JOIN aisles      ON products.aisle_id        = aisles.aisle_id
+    JOIN departments ON products.department_id   = departments.department_id
+
+User order history:
+  order_details
+    JOIN orders ON order_details.order_id = orders.order_id
+
+Segment by eval_set (prior / train / test):
+  SELECT * FROM order_details WHERE eval_set = 'prior'  -- 32M rows
+  SELECT * FROM order_details WHERE eval_set = 'train'  -- 1.38M rows
