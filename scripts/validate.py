@@ -67,7 +67,7 @@ for fname, table in CSV_TABLE_MAP.items():
     with open(fpath, "r", encoding="utf-8") as f:
         csv_rows = sum(1 for _ in f) - 1
 
-    db_rows = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    db_rows = con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] # type: ignore
     match   = csv_rows == db_rows
     status  = PASS if match else FAIL
 
@@ -80,13 +80,13 @@ for fname, table in CSV_TABLE_MAP.items():
 # ══════════════════════════════════════════════════════════════════════════════
 banner("Check 2 — NULL analysis: days_since_prior_order")
 
-total_orders, = con.execute("SELECT COUNT(*) FROM orders").fetchone()
+total_orders, = con.execute("SELECT COUNT(*) FROM orders").fetchone() # type: ignore
 null_count,   = con.execute(
     "SELECT COUNT(*) FROM orders WHERE days_since_prior_order IS NULL"
-).fetchone()
+).fetchone() # type: ignore
 first_orders, = con.execute(
     "SELECT COUNT(*) FROM orders WHERE order_number = 1"
-).fetchone()
+).fetchone() # type: ignore
 
 null_pct = null_count / total_orders * 100
 
@@ -112,7 +112,7 @@ stats = con.execute("""
     FROM orders
     WHERE days_since_prior_order IS NOT NULL
 """).fetchone()
-print(f"\n  Non-NULL days_since_prior: min={stats[0]}, max={stats[1]}, avg={stats[2]}")
+print(f"\n  Non-NULL days_since_prior: min={stats[0]}, max={stats[1]}, avg={stats[2]}") # type: ignore
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Check 3 — Orphaned records
@@ -165,7 +165,7 @@ orphan_checks = [
 ]
 
 for label, sql in orphan_checks:
-    count, = con.execute(sql).fetchone()
+    count, = con.execute(sql).fetchone() # type: ignore
     status = PASS if count == 0 else FAIL
     result(label, status,
            f"{count:,} orphaned rows" if count else "")

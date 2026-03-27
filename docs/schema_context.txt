@@ -1,0 +1,192 @@
+# Instacart Market Basket Analysis — Schema Context
+# Version: M2 | Use this context to answer analytical questions
+# about customer purchasing behaviour on the Instacart platform.
+#
+# IMPORTANT RULES
+#   1. Always query `order_details` as the primary fact table.
+#   2. Join to `products`, `aisles`, `departments` for product metadata.
+#   3. Never SELECT * from LARGE/MEDIUM tables; always project columns.
+#   4. Filter by eval_set when the question is specific to train/prior.
+#   5. days_since_prior_order IS NULL for a user's very first order.
+#   6. All DuckDB SQL — standard ANSI with window functions supported.
+
+
+============================================================
+## Table Catalog
+============================================================
+
+### orders
+Rows: 3,421,083   [MEDIUM — 3.4M rows]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  order_id                     INTEGER      NO     PK    1, 2, 3
+  user_id                      INTEGER      NO           1, 2, 3
+  eval_set                     VARCHAR      NO           'prior', 'test', 'train'
+  order_number                 INTEGER      NO           1, 2, 3  [sequential order count per user (1=first-ever order)]
+  order_dow                    INTEGER      NO           0, 1, 2, 3, 4  [0=Sunday … 6=Saturday]
+  order_hour_of_day            INTEGER      NO           0, 1, 2
+  days_since_prior_order       DOUBLE       YES          0.0, 1.0, 2.0
+
+
+### order_products_prior
+Rows: 32,434,489   [LARGE — 32M rows, avoid SELECT *]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  order_id                     INTEGER      NO     PK    2, 3, 4
+  product_id                   INTEGER      NO     PK    1, 2, 3
+  add_to_cart_order            INTEGER      NO           1, 2, 3  [position the item was added (1=first)]
+  reordered                    INTEGER      NO           0, 1  [1=reorder, 0=first time in cart]
+
+
+### order_products_train
+Rows: 1,384,617   [MEDIUM — 1.4M rows]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  order_id                     INTEGER      NO     PK    1, 36, 38
+  product_id                   INTEGER      NO     PK    1, 2, 3
+  add_to_cart_order            INTEGER      NO           1, 2, 3  [position the item was added (1=first)]
+  reordered                    INTEGER      NO           0, 1  [1=reorder, 0=first time in cart]
+
+
+### order_details
+Rows: 33,819,106   [LARGE — 33.8M rows, primary query surface]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  order_id                     INTEGER      YES          1, 2, 3
+  product_id                   INTEGER      YES          1, 2, 3
+  add_to_cart_order            INTEGER      YES          1, 2, 3  [position the item was added (1=first)]
+  reordered                    INTEGER      YES          0, 1  [1=reorder, 0=first time in cart]
+  eval_set                     VARCHAR      YES          'prior', 'train'
+  user_id                      INTEGER      YES          1, 2, 3
+  order_number                 INTEGER      YES          1, 2, 3  [sequential order count per user (1=first-ever order)]
+  order_dow                    INTEGER      YES          0, 1, 2, 3, 4  [0=Sunday … 6=Saturday]
+  order_hour_of_day            INTEGER      YES          0, 1, 2
+  days_since_prior_order       DOUBLE       YES          0.0, 1.0, 2.0
+
+
+### products
+Rows: 49,688   [SMALL — 50K rows]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  product_id                   INTEGER      NO     PK    1, 2, 3
+  product_name                 VARCHAR      NO           '#2 Coffee Filters', '#2 Cone White Coffee Filters', '#2 Mechanical Pencils'
+  aisle_id                     INTEGER      NO           1, 2, 3
+  department_id                INTEGER      NO           1, 2, 3
+
+
+### aisles
+Rows: 134   [TINY — 134 rows]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  aisle_id                     INTEGER      NO     PK    1, 2, 3
+  aisle                        VARCHAR      NO           'air fresheners candles', 'asian foods', 'baby accessories'
+
+
+### departments
+Rows: 21   [TINY — 21 rows]
+
+Column                         Type         Null   PK    Samples / Notes
+--------------------------------------------------------------------------------
+  department_id                INTEGER      NO     PK    1, 2, 3
+  department                   VARCHAR      NO           'alcohol', 'babies', 'bakery'
+
+
+
+============================================================
+## Join Graph
+============================================================
+Foreign-key relationships (child → parent):
+
+  order_products_prior.order_id -> orders.order_id
+  order_products_prior.product_id -> products.product_id
+  order_products_train.order_id -> orders.order_id
+  order_products_train.product_id -> products.product_id
+  order_details.order_id -> orders.order_id
+  order_details.product_id -> products.product_id
+  products.aisle_id -> aisles.aisle_id
+  products.department_id -> departments.department_id
+
+Common join patterns:
+
+  -- Product enrichment (name, aisle, department)
+  SELECT od.*, p.product_name, a.aisle, d.department
+  FROM order_details od
+  JOIN products    p ON od.product_id    = p.product_id
+  JOIN aisles      a ON p.aisle_id        = a.aisle_id
+  JOIN departments d ON p.department_id   = d.department_id
+
+  -- Segment by evaluation set
+  SELECT * FROM order_details WHERE eval_set = 'prior'   -- 32.4M rows
+  SELECT * FROM order_details WHERE eval_set = 'train'   -- 1.38M rows
+
+  -- User purchase history
+  SELECT user_id, COUNT(DISTINCT order_id) AS total_orders
+  FROM order_details
+  GROUP BY user_id
+  ORDER BY total_orders DESC
+  LIMIT 10;
+
+
+============================================================
+## Size Hints & Performance
+============================================================
+Table size tiers and performance guidance:
+
+  orders                         MEDIUM — 3.4M rows
+  order_products_prior           LARGE — 32M rows, avoid SELECT *
+  order_products_train           MEDIUM — 1.4M rows
+  order_details                  LARGE — 33.8M rows, primary query surface
+  products                       SMALL — 50K rows
+  aisles                         TINY — 134 rows
+  departments                    TINY — 21 rows
+
+Performance rules:
+  - Always filter before aggregating on LARGE tables.
+  - Use LIMIT during exploration.
+  - Prefer COUNT(*) over COUNT(col) unless checking nullability.
+  - Use window functions (RANK, ROW_NUMBER) instead of self-joins.
+  - DuckDB parallelises automatically — no hints needed.
+
+
+============================================================
+## Example Query Patterns
+============================================================
+Analytical query guidelines for this dataset:
+
+  REORDER RATE
+    SELECT AVG(reordered) AS reorder_rate
+    FROM order_details;
+
+  TOP PRODUCTS BY ORDER FREQUENCY
+    SELECT p.product_name, COUNT(*) AS appearances
+    FROM order_details od
+    JOIN products p ON od.product_id = p.product_id
+    GROUP BY p.product_name
+    ORDER BY appearances DESC
+    LIMIT 20;
+
+  PEAK SHOPPING HOURS
+    SELECT order_hour_of_day, COUNT(*) AS orders
+    FROM order_details
+    GROUP BY order_hour_of_day
+    ORDER BY order_hour_of_day;
+
+  BASKET SIZE DISTRIBUTION
+    SELECT order_id, COUNT(*) AS items_in_basket
+    FROM order_details
+    GROUP BY order_id
+    ORDER BY items_in_basket DESC
+    LIMIT 10;
+
+  NULL AWARENESS
+    -- days_since_prior_order is NULL for order_number = 1
+    -- Always use IS NOT NULL when computing averages:
+    SELECT AVG(days_since_prior_order)
+    FROM order_details
+    WHERE days_since_prior_order IS NOT NULL;

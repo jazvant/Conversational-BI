@@ -45,7 +45,7 @@ def csv_path(name):
     return os.path.join(DATA, name).replace("\\", "/")
 
 def rowcount(table):
-    return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    return con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] # type: ignore
 
 
 # =============================================================================
