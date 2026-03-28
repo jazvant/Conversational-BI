@@ -1,6 +1,6 @@
 # Technical Decisions
 
-Key decisions made during design and build, with rationale. Written for judges and contributors who want to understand why the system is built the way it is.
+Key decisions made during design and build, with rationale. Written for contributors who want to understand why the system is built the way it is.
 
 ---
 
