@@ -9,12 +9,10 @@ Run from project root:
     python scripts/m10_benchmark.py
 """
 
-import json
 import logging
 import os
 import sys
 import time
-from dataclasses import asdict, dataclass, field
 from datetime import datetime
 
 import anthropic
@@ -28,6 +26,7 @@ sys.path.insert(0, _ROOT)
 sys.path.insert(0, _SCRIPTS)
 
 from config import DB_PATH, DB_READ_ONLY, MODEL, SCHEMA_CONTEXT_PATH  # noqa: E402
+from scripts.m5_schemas import BenchmarkQuestionResult, BenchmarkReport  # noqa: E402
 from scripts.m3_1_prompt_builder import (                               # noqa: E402
     build_system_prompt,
     build_user_message,
@@ -311,23 +310,8 @@ BENCHMARK_QUESTIONS = [
 ]
 
 
-# -- Data structures ----------------------------------------------------------
-
-@dataclass
-class QuestionResult:
-    """Result for a single benchmark question."""
-    id:               str
-    category:         str
-    question:         str
-    sql:              str
-    sql_correct:      bool
-    db_executed:      bool
-    result_sane:      bool
-    overall:          str
-    failed_checks:    list[str] = field(default_factory=list)
-    sanity_failures:  list[str] = field(default_factory=list)
-    latency_ms:       int       = 0
-    error:            str       = ""
+# -- Data structures (Pydantic — imported from m5_schemas) --------------------
+# BenchmarkBenchmarkQuestionResult and BenchmarkReport are imported above.
 
 
 # -- Scoring helpers ----------------------------------------------------------
@@ -431,8 +415,8 @@ def run_single_question(
     con: duckdb.DuckDBPyConnection,
     system_prompt: str,
     q: dict,
-) -> QuestionResult:
-    """Run one benchmark question end to end and return a scored QuestionResult."""
+) -> BenchmarkQuestionResult:
+    """Run one benchmark question end to end and return a scored BenchmarkQuestionResult."""
     log.info("Running %s: %s...", q["id"], q["question"][:50])
     t_start = time.monotonic()
 
@@ -443,7 +427,7 @@ def run_single_question(
     except Exception as exc:
         elapsed = int((time.monotonic() - t_start) * 1000)
         log.error("API error for %s: %s", q["id"], exc)
-        return QuestionResult(
+        return BenchmarkQuestionResult(
             id=q["id"], category=q["category"], question=q["question"],
             sql="", sql_correct=False, db_executed=False, result_sane=False,
             overall="FAIL", error=str(exc), latency_ms=elapsed,
@@ -456,7 +440,7 @@ def run_single_question(
         if validation.allowed is False:
             overall = "BLOCKED_OK"
             log.info("  -> %s (%dms)", overall, elapsed)
-            return QuestionResult(
+            return BenchmarkQuestionResult(
                 id=q["id"], category=q["category"], question=q["question"],
                 sql=sql, sql_correct=True, db_executed=True, result_sane=True,
                 overall=overall, latency_ms=elapsed,
@@ -464,7 +448,7 @@ def run_single_question(
         else:
             overall = "BLOCKED_FAIL"
             log.warning("  -> %s (%dms) — M7 did NOT block: %s", overall, elapsed, sql[:80])
-            return QuestionResult(
+            return BenchmarkQuestionResult(
                 id=q["id"], category=q["category"], question=q["question"],
                 sql=sql, sql_correct=False, db_executed=False, result_sane=False,
                 overall=overall, latency_ms=elapsed,
@@ -475,7 +459,7 @@ def run_single_question(
     if is_cannot_answer(sql):
         elapsed = int((time.monotonic() - t_start) * 1000)
         log.warning("  -> FAIL (CANNOT_ANSWER) (%dms)", elapsed)
-        return QuestionResult(
+        return BenchmarkQuestionResult(
             id=q["id"], category=q["category"], question=q["question"],
             sql=sql, sql_correct=False, db_executed=False, result_sane=False,
             overall="FAIL", latency_ms=elapsed, error="Model returned CANNOT_ANSWER",
@@ -510,7 +494,7 @@ def run_single_question(
         if error_msg:
             log.warning("     error: %s", error_msg[:120])
 
-    return QuestionResult(
+    return BenchmarkQuestionResult(
         id=q["id"], category=q["category"], question=q["question"],
         sql=sql, sql_correct=sql_correct, db_executed=db_executed,
         result_sane=result_sane, overall=overall,
@@ -526,9 +510,9 @@ def run_benchmark(
     con: duckdb.DuckDBPyConnection,
     system_prompt: str,
     questions: list[dict],
-) -> dict:
-    """Run all benchmark questions sequentially and return aggregated results dict."""
-    question_results: list[QuestionResult] = []
+) -> BenchmarkReport:
+    """Run all benchmark questions sequentially and return a BenchmarkReport."""
+    question_results: list[BenchmarkQuestionResult] = []
 
     for q in questions:
         qr = run_single_question(client, con, system_prompt, q)
@@ -561,40 +545,40 @@ def run_benchmark(
     def pct(n: int, d: int) -> float:
         return round(100.0 * n / d, 1) if d else 0.0
 
-    return {
-        "architecture":     ARCHITECTURE,
-        "timestamp":        datetime.now().isoformat(timespec="seconds"),
-        "model":            MODEL,
-        "total":            total,
-        "sql_correct":      sql_correct,
-        "db_executed":      db_executed,
-        "result_sane":      result_sane,
-        "full_pass":        full_pass,
-        "blocked_ok":       blocked_ok,
-        "sql_pct":          pct(sql_correct, total),
-        "db_pct":           pct(db_executed, total),
-        "sanity_pct":       pct(result_sane, total),
-        "pass_pct":         pct(full_pass, total),
-        "total_latency_ms": total_latency,
-        "avg_latency_ms":   total_latency // total if total else 0,
-        "by_category":      categories,
-        "questions":        [asdict(r) for r in question_results],
-    }
+    return BenchmarkReport(
+        architecture=     ARCHITECTURE,
+        timestamp=        datetime.now().isoformat(timespec="seconds"),
+        model=            MODEL,
+        total=            total,
+        sql_correct=      sql_correct,
+        db_executed=      db_executed,
+        result_sane=      result_sane,
+        full_pass=        full_pass,
+        blocked_ok=       blocked_ok,
+        sql_pct=          pct(sql_correct, total),
+        db_pct=           pct(db_executed, total),
+        sanity_pct=       pct(result_sane, total),
+        pass_pct=         pct(full_pass, total),
+        total_latency_ms= total_latency,
+        avg_latency_ms=   total_latency // total if total else 0,
+        by_category=      categories,
+        questions=        question_results,
+    )
 
 
 # -- Output formatters --------------------------------------------------------
 
-def print_results_table(results: dict) -> None:
-    """Print a formatted benchmark results table to stdout."""
+def print_results_table(report: BenchmarkReport) -> None:
+    """Print a formatted benchmark results table from a BenchmarkReport."""
     BAR  = "=" * 52
     SEP  = "-" * 52
     THIN = "-" * 68
 
     print(f"\n{BAR}")
     print("Instacart BI Agent -- M10 Benchmark")
-    print(f"Architecture : {results['architecture']}")
-    print(f"Model        : {results['model']}")
-    print(f"Timestamp    : {results['timestamp']}")
+    print(f"Architecture : {report.architecture}")
+    print(f"Model        : {report.model}")
+    print(f"Timestamp    : {report.timestamp}")
     print(BAR)
 
     # Per-question table
@@ -602,24 +586,24 @@ def print_results_table(results: dict) -> None:
     print(f"\n{hdr}")
     print(THIN)
 
-    for q in results["questions"]:
-        overall = q["overall"]
+    for q in report.questions:
+        overall = q.overall
         if overall in ("BLOCKED_OK", "BLOCKED_FAIL"):
             sql_s = db_s = san_s = "-"
         else:
-            sql_s = "PASS" if q["sql_correct"]  else "FAIL"
-            db_s  = "PASS" if q["db_executed"]  else "FAIL"
-            san_s = "PASS" if q["result_sane"]  else "FAIL"
+            sql_s = "PASS" if q.sql_correct else "FAIL"
+            db_s  = "PASS" if q.db_executed else "FAIL"
+            san_s = "PASS" if q.result_sane else "FAIL"
 
         print(
-            f"{q['id']:<7} {q['category']:<18} {sql_s:<7} {db_s:<7} "
-            f"{san_s:<8} {overall:<12} {q['latency_ms']:>6}"
+            f"{q.id:<7} {q.category:<18} {sql_s:<7} {db_s:<7} "
+            f"{san_s:<8} {overall:<12} {q.latency_ms:>6}"
         )
 
     # Category summary
     print(f"\n{'Category':<20} {'Qs':>4} {'SQL%':>7} {'DB%':>7} {'Sanity%':>9} {'Pass%':>7}")
     print("-" * 57)
-    for cat, counts in results["by_category"].items():
+    for cat, counts in report.by_category.items():
         n = counts["total"]
         print(
             f"{cat:<20} {n:>4} "
@@ -630,45 +614,42 @@ def print_results_table(results: dict) -> None:
         )
 
     # Overall summary
-    n             = results["total"]
-    safety_total  = sum(
-        1 for q in results["questions"]
-        if q["category"] == "safety"
-    )
-    avg_s         = results["avg_latency_ms"]
-    total_s       = results["total_latency_ms"] / 1000
+    n            = report.total
+    safety_total = sum(1 for q in report.questions if q.category == "safety")
+    avg_s        = report.avg_latency_ms
+    total_s      = report.total_latency_ms / 1000
 
     print(f"\n{BAR}")
     print("RESULTS SUMMARY")
-    print(f"SQL correctness  : {results['sql_correct']:2d} / {n}  ({results['sql_pct']}%)")
-    print(f"DB execution     : {results['db_executed']:2d} / {n}  ({results['db_pct']}%)")
-    print(f"Result sanity    : {results['result_sane']:2d} / {n}  ({results['sanity_pct']}%)")
-    print(f"Full pass rate   : {results['full_pass']:2d} / {n}  ({results['pass_pct']}%)")
-    print(f"Safety blocked   : {results['blocked_ok']:2d} / {safety_total:2d}  "
-          f"({100*results['blocked_ok']//safety_total if safety_total else 0}%)")
+    print(f"SQL correctness  : {report.sql_correct:2d} / {n}  ({report.sql_pct}%)")
+    print(f"DB execution     : {report.db_executed:2d} / {n}  ({report.db_pct}%)")
+    print(f"Result sanity    : {report.result_sane:2d} / {n}  ({report.sanity_pct}%)")
+    print(f"Full pass rate   : {report.full_pass:2d} / {n}  ({report.pass_pct}%)")
+    print(f"Safety blocked   : {report.blocked_ok:2d} / {safety_total:2d}  "
+          f"({100*report.blocked_ok//safety_total if safety_total else 0}%)")
     print(SEP)
     print(f"Avg latency      : {avg_s:,}ms per question")
     print(f"Total runtime    : {total_s:.1f}s")
     print(BAR)
 
 
-def save_results(results: dict, path: str) -> None:
-    """Save results dict to path as formatted JSON, creating dirs as needed."""
+def save_results(report: BenchmarkReport, path: str) -> None:
+    """Save BenchmarkReport to path as formatted JSON using Pydantic serialisation."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as fh:
-        json.dump(results, fh, indent=2)
+        fh.write(report.to_json())
     log.info("Results saved to %s", path)
 
 
-def compare_to_baseline(results: dict) -> None:
-    """Print delta vs baseline, or save current results as the baseline."""
+def compare_to_baseline(report: BenchmarkReport) -> None:
+    """Print delta vs baseline, or save current report as the baseline."""
     if not os.path.exists(BASELINE_PATH):
-        save_results(results, BASELINE_PATH)
+        save_results(report, BASELINE_PATH)
         print("\nBaseline saved -- this is your Architecture 1 reference score.")
         return
 
     with open(BASELINE_PATH, encoding="utf-8") as fh:
-        baseline = json.load(fh)
+        baseline = BenchmarkReport.from_json(fh.read())
 
     print("\n-- Comparison to Architecture 1 baseline --")
     metrics = [
@@ -678,8 +659,8 @@ def compare_to_baseline(results: dict) -> None:
         ("Full pass rate",  "pass_pct"),
     ]
     for label, key in metrics:
-        old = baseline.get(key, 0.0)
-        new = results.get(key, 0.0)
+        old   = getattr(baseline, key, 0.0)
+        new   = getattr(report,   key, 0.0)
         delta = new - old
         sign  = "+" if delta >= 0 else ""
         print(f"  {label:<18}: {old}% -> {new}%  ({sign}{delta:.1f}%)")
@@ -715,17 +696,17 @@ def main() -> None:
 
     # 5. Run
     print("Running 30-question benchmark...")
-    results = run_benchmark(client, con, system_prompt, BENCHMARK_QUESTIONS)
+    report = run_benchmark(client, con, system_prompt, BENCHMARK_QUESTIONS)
     con.close()
 
     # 6-9. Report and persist
-    print_results_table(results)
-    save_results(results, RESULTS_PATH)
-    compare_to_baseline(results)
+    print_results_table(report)
+    save_results(report, RESULTS_PATH)
+    compare_to_baseline(report)
     print(f"\nFull results saved to {RESULTS_PATH}")
 
     # 10. Exit code
-    sys.exit(0 if results["full_pass"] >= 24 else 1)
+    sys.exit(0 if report.full_pass >= 24 else 1)
 
 
 if __name__ == "__main__":

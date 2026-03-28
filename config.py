@@ -4,6 +4,10 @@ Swapping datasets = swapping this file.
 All paths are relative to the project root (run everything from there).
 """
 
+import sys as _sys
+import os as _os
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+
 # -- Paths --------------------------------------------------------------------
 DB_PATH             = "models/instacart.db"
 SCHEMA_CONTEXT_PATH = "docs/schema_context.txt"
@@ -146,3 +150,53 @@ SAFE_ERROR_SUBSTRINGS = [
     "type mismatch",
     "time limit",
 ]
+
+# ── Architecture settings ──────────────────────────────────
+from scripts.m5_schemas import PlannerOutput, CriticOutput  # noqa: E402, F401
+
+ARCHITECTURE = 2
+
+INTENT_DATA_QUERY     = "data_query"
+INTENT_CONVERSATIONAL = "conversational"
+INTENT_MULTISTEP      = "multistep"
+INTENT_CANNOT_ANSWER  = "cannot_answer"
+
+CRITIC_MAX_TOKENS  = 400
+NARRATIVE_MIN_ROWS = 2
+
+PLANNER_SYSTEM_PROMPT = """
+You are the query planner for a conversational BI agent
+built on the Instacart grocery dataset.
+
+Classify the user's intent. Use the recent conversation
+context to determine whether the current question is a
+follow-up or a new query.
+
+Classification rules:
+- data_query:     user wants data from the database.
+                  Most analytical questions fall here.
+- conversational: user wants explanation or analysis of
+                  a prior result. Triggered by: why,
+                  explain, what does that mean, tell me
+                  more, is that good, how does that compare.
+- multistep:      user asks for two or more distinct data
+                  queries. Triggered by: first X then Y,
+                  compare A with B, show X and also Y.
+- cannot_answer:  question has nothing to do with grocery
+                  purchasing data.
+"""
+
+CRITIC_SYSTEM_PROMPT = """
+You are the insight analyst for a conversational BI agent.
+You will be given a user question and the data result.
+Provide a concise structured insight.
+
+Rules:
+- Use actual numbers from the data — never be vague.
+- Keep each field to 1-2 sentences maximum.
+- answer must directly respond to the question asked.
+- finding must include a specific number or comparison.
+- caveat must say exactly 'None.' if there are no issues.
+- followup must be a complete question ending with '?'.
+- Total response must be under 120 words across all fields.
+"""
