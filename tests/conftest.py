@@ -12,6 +12,7 @@ _SCRIPTS = os.path.join(os.path.dirname(__file__), "..", "scripts")
 sys.path.insert(0, os.path.abspath(_SCRIPTS))
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, _ROOT)
 
 import duckdb
 from dotenv import load_dotenv
@@ -19,16 +20,18 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(_ROOT, ".env"))
 
 from m3_1_prompt_builder import build_system_prompt
+from config import DB_READ_ONLY, DUCKDB_MEMORY_LIMIT
 
 
 # -- Fixtures -----------------------------------------------------------------
 
 @pytest.fixture(scope="session")
 def db_connection():
-    """Open a read-only DuckDB session connection; close after all tests."""
+    """Open a read-only DuckDB session connection with memory cap; close after all tests."""
     db_path = os.path.join(_ROOT, "models", "instacart.db")
     assert os.path.exists(db_path), f"Database not found: {db_path}"
-    con = duckdb.connect(db_path, read_only=True)
+    con = duckdb.connect(db_path, read_only=DB_READ_ONLY)
+    con.execute(f"SET memory_limit='{DUCKDB_MEMORY_LIMIT}'")
     yield con
     con.close()
 

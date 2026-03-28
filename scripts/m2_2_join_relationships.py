@@ -13,40 +13,10 @@ import sys
 import duckdb
 
 from m2_1_table_description import DB_PATH, TABLES
+from config import FK_RELATIONSHIPS, TABLE_SIZE_HINTS
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(message)s")
 log = logging.getLogger(__name__)
-
-# -- FK graph (must mirror docs/schema_metadata.txt exactly) ------------------
-FK_RELATIONSHIPS: dict = {
-    "order_products_prior": {
-        "order_id":   ("orders",   "order_id"),
-        "product_id": ("products", "product_id"),
-    },
-    "order_products_train": {
-        "order_id":   ("orders",   "order_id"),
-        "product_id": ("products", "product_id"),
-    },
-    "order_details": {
-        "order_id":   ("orders",   "order_id"),
-        "product_id": ("products", "product_id"),
-    },
-    "products": {
-        "aisle_id":      ("aisles",       "aisle_id"),
-        "department_id": ("departments",  "department_id"),
-    },
-}
-
-# -- Performance hints for the LLM -------------------------------------------
-TABLE_SIZE_HINTS: dict = {
-    "orders":               "MEDIUM — 3.4M rows",
-    "order_products_prior": "LARGE — 32M rows, avoid SELECT *",
-    "order_products_train": "MEDIUM — 1.4M rows",
-    "order_details":        "LARGE — 33.8M rows, primary query surface",
-    "products":             "SMALL — 50K rows",
-    "aisles":               "TINY — 134 rows",
-    "departments":          "TINY — 21 rows",
-}
 
 # -- Tables to skip during live orphan checks --------------------------------
 # order_details is a CTAS materialisation of the UNION ALL; its integrity is

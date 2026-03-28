@@ -8,10 +8,7 @@ and optional conversation history.
 
 import os
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# -- Constants ----------------------------------------------------------------
-SCHEMA_CONTEXT_PATH = os.path.join(_ROOT, "docs", "schema_context.txt")
+from config import SCHEMA_CONTEXT_PATH
 
 _SYSTEM_INSTRUCTIONS = """
 You are a DuckDB SQL expert.

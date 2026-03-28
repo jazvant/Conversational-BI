@@ -7,8 +7,8 @@ correct the SQL. Hard cap of 3 total attempts (1 original + 2 retries).
 
 import logging
 
-from m3_1_prompt_builder import build_user_message
 from m3_2_sql_generator  import generate_sql, is_cannot_answer
+from m6_memory           import build_messages
 from m3_3_executor       import execute_sql
 
 log = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def attempt_with_retry(
         log.info("Attempt %d/%d for question: %s", attempt, MAX_RETRIES, question[:50])
 
         if attempt == 1:
-            messages = build_user_message(question, history)
+            messages = build_messages(question, history or [])
         else:
             # Feed the previous error back to Claude for correction
             retry_content = build_retry_message(question, sql, result["error"])

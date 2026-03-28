@@ -18,21 +18,18 @@ from dotenv import load_dotenv
 # Ensure scripts/ is importable when invoked from the project root
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from m3_1_prompt_builder import (
-    SCHEMA_CONTEXT_PATH,
-    build_system_prompt,
-    build_user_message,
-    load_schema_context,
-)
+from m3_1_prompt_builder import build_system_prompt, load_schema_context
 from m3_4_error_recovery import attempt_with_retry
+from m6_memory import add_turn, build_messages
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
 load_dotenv(os.path.join(_ROOT, ".env"))
 
+from config import DB_PATH, SCHEMA_CONTEXT_PATH  # noqa: E402
+
 # -- Constants ----------------------------------------------------------------
-DB_PATH             = os.path.join(_ROOT, "models", "instacart.db")
-_MAX_HISTORY_ITEMS  = 6
-_SEP                = "-" * 60
+_SEP = "-" * 60
 _BANNER = """\
 ============================================
  Instacart BI Agent -- M3 ready
@@ -72,8 +69,8 @@ def main() -> None:
         sys.exit(1)
     client = anthropic.Anthropic(api_key=api_key)
 
-    # 5. Conversation history
-    history: list = []
+    # 5. Conversation memory
+    memory: list = []
 
     # 6. Startup banner
     print(_BANNER)
@@ -103,7 +100,7 @@ def main() -> None:
             con,
             system_prompt,
             question,
-            history,
+            memory,
         )
 
         # f-i. Print result
@@ -119,12 +116,8 @@ def main() -> None:
 
         print(_SEP)
 
-        # j. Append to history
-        history.append({"role": "user",      "content": question})
-        history.append({"role": "assistant", "content": result["sql"]})
-
-        # k. Trim history to last 6 items
-        history = history[-_MAX_HISTORY_ITEMS:]
+        # j. Add turn to memory
+        memory = add_turn(memory, question, result["sql"], result)
 
     # 8. Goodbye
     con.close()
