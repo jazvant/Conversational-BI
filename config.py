@@ -144,4 +144,5 @@ SAFE_ERROR_SUBSTRINGS = [
     "ambiguous column",
     "division by zero",
     "type mismatch",
+    "time limit",
 ]

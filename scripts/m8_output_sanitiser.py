@@ -23,6 +23,16 @@ from config import (
 log = logging.getLogger(__name__)
 
 
+# Normalise known DuckDB error patterns to safe display strings.
+# Checked before SAFE_ERROR_SUBSTRINGS so common DuckDB phrasing maps cleanly.
+_ERROR_NORMALISATION = {
+    "does not exist":  "table not found",
+    "no such table":   "table not found",
+    "no such column":  "column not found",
+    "unknown column":  "column not found",
+}
+
+
 # -- Error sanitisation -------------------------------------------------------
 
 def sanitise_error(raw_error: str) -> str:
@@ -30,16 +40,23 @@ def sanitise_error(raw_error: str) -> str:
     log.debug("Raw DuckDB error: %s", raw_error)
 
     raw_lower = raw_error.lower()
+
+    # Check normalisation mappings first (DuckDB phrasing → canonical safe string)
+    for pattern, canonical in _ERROR_NORMALISATION.items():
+        if pattern in raw_lower:
+            sanitised = f"Query error: {canonical}"
+            log.warning("Sanitised error (normalised): %s", sanitised)
+            return sanitised
+
+    # Check safe substrings — extract and clean the relevant portion
     for safe_sub in SAFE_ERROR_SUBSTRINGS:
         if safe_sub in raw_lower:
-            # Find the position and extract surrounding context
-            idx   = raw_lower.find(safe_sub)
-            # Take from the safe substring to end, truncate at 120 chars
+            idx     = raw_lower.find(safe_sub)
             excerpt = raw_error[idx:idx + 120].strip()
             # Strip file paths (e.g. /src/..., C:\...) and line numbers
-            excerpt = re.sub(r"[A-Za-z]:\\[^\s,]+",   "", excerpt)
+            excerpt = re.sub(r"[A-Za-z]:\\[^\s,]+",    "", excerpt)
             excerpt = re.sub(r"/[a-z][^\s,]*\.[a-z]+", "", excerpt)
-            excerpt = re.sub(r":\d+",                  "", excerpt)
+            excerpt = re.sub(r":\d+",                   "", excerpt)
             excerpt = excerpt.strip().rstrip(",.:").strip()
             sanitised = f"Query error: {excerpt}"
             log.warning("Sanitised error: %s", sanitised)
