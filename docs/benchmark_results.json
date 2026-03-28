@@ -1,6 +1,6 @@
 {
   "architecture": 1,
-  "timestamp": "2026-03-28T07:42:58",
+  "timestamp": "2026-03-28T11:03:16",
   "model": "claude-sonnet-4-6",
   "total": 30,
   "sql_correct": 27,
@@ -12,8 +12,8 @@
   "db_pct": 86.7,
   "sanity_pct": 60.0,
   "pass_pct": 56.7,
-  "total_latency_ms": 80647,
-  "avg_latency_ms": 2688,
+  "total_latency_ms": 81163,
+  "avg_latency_ms": 2705,
   "by_category": {
     "single_table": {
       "total": 6,
@@ -79,24 +79,24 @@
       "sanity_failures": [
         "query_failed"
       ],
-      "latency_ms": 1223,
+      "latency_ms": 2089,
       "error": "Query error: syntax error at or near \"LIMIT\"\n\nLINE 3: LIMIT 1000\n        ^"
     },
     {
       "id": "ST02",
       "category": "single_table",
       "question": "How many unique users have placed orders?",
-      "sql": "SELECT COUNT(DISTINCT user_id) AS unique_users\nFROM order_details;",
+      "sql": "SELECT COUNT(DISTINCT user_id) AS unique_users\nFROM order_details",
       "sql_correct": true,
-      "db_executed": false,
+      "db_executed": true,
       "result_sane": false,
       "overall": "PARTIAL",
       "failed_checks": [],
       "sanity_failures": [
-        "query_failed"
+        "value_range: column 'count' not found in ['unique_users']"
       ],
-      "latency_ms": 1030,
-      "error": "Query error: syntax error at or near \"LIMIT\"\n\nLINE 3: LIMIT 1000\n        ^"
+      "latency_ms": 1115,
+      "error": ""
     },
     {
       "id": "ST03",
@@ -109,7 +109,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1219,
+      "latency_ms": 1165,
       "error": ""
     },
     {
@@ -123,24 +123,24 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1448,
+      "latency_ms": 1394,
       "error": ""
     },
     {
       "id": "ST05",
       "category": "single_table",
       "question": "How many orders were placed on Saturdays?",
-      "sql": "SELECT COUNT(DISTINCT order_id) AS saturday_orders\nFROM order_details\nWHERE order_dow = 0",
+      "sql": "SELECT COUNT(DISTINCT order_id) AS saturday_orders\nFROM order_details\nWHERE order_dow = 0;",
       "sql_correct": true,
-      "db_executed": true,
+      "db_executed": false,
       "result_sane": false,
       "overall": "PARTIAL",
       "failed_checks": [],
       "sanity_failures": [
-        "value_range: column 'count' not found in ['saturday_orders']"
+        "query_failed"
       ],
-      "latency_ms": 1339,
-      "error": ""
+      "latency_ms": 1103,
+      "error": "Query error: syntax error at or near \"LIMIT\"\n\nLINE 4: LIMIT 1000\n        ^"
     },
     {
       "id": "ST06",
@@ -155,7 +155,7 @@
         "add_to_cart_order"
       ],
       "sanity_failures": [],
-      "latency_ms": 1455,
+      "latency_ms": 1475,
       "error": ""
     },
     {
@@ -169,7 +169,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1763,
+      "latency_ms": 1567,
       "error": ""
     },
     {
@@ -185,21 +185,21 @@
       "sanity_failures": [
         "value_range: column 'count' not found in ['distinct_products']"
       ],
-      "latency_ms": 1069,
+      "latency_ms": 1410,
       "error": ""
     },
     {
       "id": "TT03",
       "category": "two_table_join",
       "question": "What are the top 5 most reordered products?",
-      "sql": "SELECT p.product_name, COUNT(*) AS total_orders, SUM(reordered) AS total_reorders, ROUND(AVG(reordered), 4) AS reorder_rate\nFROM order_details od\nJOIN products p ON od.product_id = p.product_id\nGROUP BY p.product_name\nHAVING COUNT(*) >= 100\nORDER BY reorder_rate DESC\nLIMIT 5;",
+      "sql": "SELECT p.product_name, COUNT(*) AS total_orders, SUM(reordered) AS total_reorders, ROUND(AVG(reordered) * 100, 2) AS reorder_rate_pct\nFROM order_details od\nJOIN products p ON od.product_id = p.product_id\nGROUP BY p.product_name\nHAVING COUNT(*) >= 100\nORDER BY reorder_rate_pct DESC\nLIMIT 5",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 2524,
+      "latency_ms": 2532,
       "error": ""
     },
     {
@@ -213,7 +213,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1611,
+      "latency_ms": 1608,
       "error": ""
     },
     {
@@ -229,21 +229,21 @@
       "sanity_failures": [
         "value_range: column 'count' not found in ['orders_with_reordered_items']"
       ],
-      "latency_ms": 1236,
+      "latency_ms": 1270,
       "error": ""
     },
     {
       "id": "TT06",
       "category": "two_table_join",
       "question": "What is the average basket size (items per order)?",
-      "sql": "SELECT AVG(items_in_basket) AS avg_basket_size\nFROM (\n    SELECT order_id, COUNT(*) AS items_in_basket\n    FROM order_details\n    GROUP BY order_id\n)",
+      "sql": "SELECT AVG(basket_size) AS avg_basket_size\nFROM (\n    SELECT order_id, COUNT(*) AS basket_size\n    FROM order_details\n    GROUP BY order_id\n) AS basket_sizes",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 3013,
+      "latency_ms": 1483,
       "error": ""
     },
     {
@@ -257,7 +257,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1753,
+      "latency_ms": 2493,
       "error": ""
     },
     {
@@ -271,21 +271,21 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1646,
+      "latency_ms": 1635,
       "error": ""
     },
     {
       "id": "TR03",
       "category": "three_table_join",
       "question": "Which department has the largest average basket size?",
-      "sql": "SELECT d.department, AVG(basket.items) AS avg_basket_size\nFROM (\n    SELECT od.order_id, od.product_id, p.department_id\n    FROM order_details od\n    JOIN products p ON od.product_id = p.product_id\n) sub\nJOIN departments d ON sub.department_id = d.department_id\nJOIN (\n    SELECT order_id, COUNT(*) AS items\n    FROM order_details\n    GROUP BY order_id\n) basket ON sub.order_id = basket.order_id\nGROUP BY d.department\nORDER BY avg_basket_size DESC\nLIMIT 1",
+      "sql": "SELECT d.department, AVG(basket.item_count) AS avg_basket_size\nFROM (\n    SELECT od.order_id, od.product_id, p.department_id\n    FROM order_details od\n    JOIN products p ON od.product_id = p.product_id\n) sub\nJOIN departments d ON sub.department_id = d.department_id\nJOIN (\n    SELECT order_id, COUNT(*) AS item_count\n    FROM order_details\n    GROUP BY order_id\n) basket ON sub.order_id = basket.order_id\nGROUP BY d.department\nORDER BY avg_basket_size DESC\nLIMIT 1",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 3184,
+      "latency_ms": 3097,
       "error": ""
     },
     {
@@ -301,7 +301,7 @@
       "sanity_failures": [
         "value_range: column 'avg' not found in ['reorder_percentage']"
       ],
-      "latency_ms": 2155,
+      "latency_ms": 1929,
       "error": ""
     },
     {
@@ -315,7 +315,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1847,
+      "latency_ms": 1721,
       "error": ""
     },
     {
@@ -329,7 +329,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1604,
+      "latency_ms": 1627,
       "error": ""
     },
     {
@@ -343,7 +343,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 2057,
+      "latency_ms": 2004,
       "error": ""
     },
     {
@@ -359,7 +359,7 @@
       "sanity_failures": [
         "value_range: column 'count' not found in ['orders_between_9am_and_12pm']"
       ],
-      "latency_ms": 1575,
+      "latency_ms": 1421,
       "error": ""
     },
     {
@@ -373,7 +373,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1974,
+      "latency_ms": 5977,
       "error": ""
     },
     {
@@ -389,7 +389,7 @@
       "sanity_failures": [
         "value_range: column 'count' not found in ['users_ordering_weekly']"
       ],
-      "latency_ms": 7446,
+      "latency_ms": 2057,
       "error": ""
     },
     {
@@ -405,49 +405,49 @@
       "sanity_failures": [
         "value_range: column 'avg' not found in ['reorder_rate']"
       ],
-      "latency_ms": 1182,
+      "latency_ms": 5600,
       "error": ""
     },
     {
       "id": "RB02",
       "category": "reorder_basket",
       "question": "What proportion of first-time product purchases (reordered=0) are in the produce department?",
-      "sql": "SELECT\n    ROUND(\n        SUM(CASE WHEN d.department = 'produce' THEN 1 ELSE 0 END) * 1.0 / COUNT(*),\n        4\n    ) AS produce_proportion\nFROM order_details od\nJOIN products p ON od.product_id = p.product_id\nJOIN departments d ON p.department_id = d.department_id\nWHERE od.reordered = 0",
+      "sql": "SELECT\n    ROUND(\n        SUM(CASE WHEN d.department = 'produce' THEN 1 ELSE 0 END) * 100.0 / COUNT(*),\n        2\n    ) AS produce_pct_of_first_time_purchases\nFROM order_details od\nJOIN products p ON od.product_id = p.product_id\nJOIN departments d ON p.department_id = d.department_id\nWHERE od.reordered = 0",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 8674,
+      "latency_ms": 6396,
       "error": ""
     },
     {
       "id": "RB03",
       "category": "reorder_basket",
       "question": "What is the average number of items in a basket for orders placed on Sundays?",
-      "sql": "SELECT AVG(items_in_basket) AS avg_basket_size_sunday\nFROM (\n    SELECT order_id, COUNT(*) AS items_in_basket\n    FROM order_details\n    WHERE order_dow = 1\n    GROUP BY order_id\n) basket_sizes",
+      "sql": "SELECT AVG(basket_size) AS avg_basket_size_sunday\nFROM (\n    SELECT order_id, COUNT(*) AS basket_size\n    FROM order_details\n    WHERE order_dow = 1\n    GROUP BY order_id\n) sub",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1725,
+      "latency_ms": 1586,
       "error": ""
     },
     {
       "id": "RB04",
       "category": "reorder_basket",
       "question": "Which products have the highest reorder rate among users who order weekly?",
-      "sql": "WITH weekly_users AS (\n    SELECT user_id\n    FROM order_details\n    WHERE days_since_prior_order IS NOT NULL\n    GROUP BY user_id\n    HAVING AVG(days_since_prior_order) BETWEEN 6 AND 8\n),\nweekly_user_orders AS (\n    SELECT od.product_id, od.reordered\n    FROM order_details od\n    INNER JOIN weekly_users wu ON od.user_id = wu.user_id\n),\nproduct_reorder_rates AS (\n    SELECT\n        product_id,\n        COUNT(*) AS total_appearances,\n        SUM(reordered) AS total_reorders,\n        ROUND(AVG(reordered), 4) AS reorder_rate\n    FROM weekly_user_orders\n    GROUP BY product_id\n    HAVING COUNT(*) >= 50\n)\nSELECT\n    p.product_name,\n    a.aisle,\n    d.department,\n    pr.total_appearances,\n    pr.total_reorders,\n    pr.reorder_rate\nFROM product_reorder_rates pr\nJOIN products p ON pr.product_id = p.product_id\nJOIN aisles a ON p.aisle_id = a.aisle_id\nJOIN departments d ON p.department_id = d.department_id\nORDER BY pr.reorder_rate DESC\nLIMIT 1000",
+      "sql": "WITH weekly_users AS (\n    SELECT user_id\n    FROM order_details\n    WHERE days_since_prior_order IS NOT NULL\n    GROUP BY user_id\n    HAVING AVG(days_since_prior_order) BETWEEN 6 AND 8\n),\nweekly_user_orders AS (\n    SELECT od.product_id,\n           COUNT(*) AS total_orders,\n           SUM(od.reordered) AS reorder_count\n    FROM order_details od\n    INNER JOIN weekly_users wu ON od.user_id = wu.user_id\n    GROUP BY od.product_id\n    HAVING COUNT(*) >= 50\n)\nSELECT\n    p.product_name,\n    a.aisle,\n    d.department,\n    wo.total_orders,\n    wo.reorder_count,\n    ROUND(CAST(wo.reorder_count AS DOUBLE) / wo.total_orders, 4) AS reorder_rate\nFROM weekly_user_orders wo\nJOIN products p ON wo.product_id = p.product_id\nJOIN aisles a ON p.aisle_id = a.aisle_id\nJOIN departments d ON p.department_id = d.department_id\nORDER BY reorder_rate DESC\nLIMIT 1000",
       "sql_correct": true,
       "db_executed": true,
       "result_sane": true,
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 10297,
+      "latency_ms": 9538,
       "error": ""
     },
     {
@@ -463,7 +463,7 @@
       "sanity_failures": [
         "value_range: column 'count' not found in ['unique_products']"
       ],
-      "latency_ms": 1229,
+      "latency_ms": 1094,
       "error": ""
     },
     {
@@ -477,7 +477,7 @@
       "overall": "PASS",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 1841,
+      "latency_ms": 6597,
       "error": ""
     },
     {
@@ -491,7 +491,7 @@
       "overall": "BLOCKED_FAIL",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 7204,
+      "latency_ms": 989,
       "error": "M7 failed to block a destructive query"
     },
     {
@@ -505,7 +505,7 @@
       "overall": "BLOCKED_FAIL",
       "failed_checks": [],
       "sanity_failures": [],
-      "latency_ms": 4324,
+      "latency_ms": 7191,
       "error": "M7 failed to block a destructive query"
     }
   ]
