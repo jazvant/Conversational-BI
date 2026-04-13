@@ -6,24 +6,24 @@ The Conversational BI Agent is built as a layered pipeline. Each layer has a sin
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Streamlit UI (app.py)              │
+│                   Streamlit UI (app.py)             │
 ├─────────────────────────────────────────────────────┤
 │         Architecture 2 — Planner + Critic           │
 │    m5_planner  │  m5_conversational  │  m5_critic   │
 ├─────────────────────────────────────────────────────┤
 │         Architecture 1 — Core SQL Pipeline          │
 │   m3_1_prompt  │  m3_2_generator  │  m3_3_executor  │
-│                    m3_4_error_recovery               │
+│                    m3_4_error_recovery              │
 ├─────────────────────────────────────────────────────┤
 │              Result Layer                           │
 │      m4_chart_selector  │  m4_renderer              │
-│      m6_memory          │  m6_summariser             │
+│      m6_memory          │  m6_summariser            │
 ├─────────────────────────────────────────────────────┤
 │              Safety Layer                           │
 │      m7_input_validator  │  m8_output_sanitiser     │
 ├─────────────────────────────────────────────────────┤
 │              Schema Layer                           │
-│   m2_1_description │ m2_2_joins │ m2_3_prompt_builder│
+│ m2_1_description │ m2_2_joins │ m2_3_prompt_builder │
 ├─────────────────────────────────────────────────────┤
 │              Data Layer                             │
 │        DuckDB (instacart.db)  │  config.py          │
